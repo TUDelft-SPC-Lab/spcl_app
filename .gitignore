@@ -1,0 +1,16 @@
+_build/*
+*.hex
+*.zip
+BadgeFramework/terminal.py
+BadgeFramework/terminal.py
+BadgeFramework/data_collection.log
+BadgeFramework/mappings_all.csv
+BadgeFramework/mappings_nonworking.csv
+.mypy_cache/*
+BadgeFramework/__pycache__/**/*
+BadgeFramework/**/*.pyc
+BadgeFramework/parser/output/**/*
+BadgeFramework/parser/output_raw/**/*
+.vscode/settings.json
+**/.DS_Store
+BadgeFramework/rotation/rpi_sync.sh
