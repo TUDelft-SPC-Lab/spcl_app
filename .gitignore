@@ -14,3 +14,4 @@ BadgeFramework/parser/output_raw/**/*
 .vscode/settings.json
 **/.DS_Store
 BadgeFramework/rotation/rpi_sync.sh
+.idea
