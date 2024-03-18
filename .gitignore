@@ -15,3 +15,4 @@ BadgeFramework/parser/output_raw/**/*
 **/.DS_Store
 BadgeFramework/rotation/rpi_sync.sh
 .idea
+*.log

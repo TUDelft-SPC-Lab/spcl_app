@@ -1,4 +1,5 @@
 import asyncio
+import queue
 
 import pandas
 import pandas as pd
@@ -7,6 +8,9 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 import uuid
 import struct
+import badge
+from badge_protocol import Request
+import badge_bleak
 
 
 def get_mac_address(df, badge_id: int) -> str:
@@ -87,8 +91,11 @@ async def main():
             CONFIG_HANDLE = 0x0013
             ACTIVATION_VAL = struct.pack("<bb", 0x01, 0x00)
             # await client.write_gatt_char(CONFIG_HANDLE, ACTIVATION_VAL)
-            await client.write_gatt_char(RX_CHAR_UUID, ACTIVATION_VAL)
+            await client.write_gatt_char(RX_CHAR_UUID, ACTIVATION_VAL, response=True)
 
+            bleak_badge = badge_bleak.OpenBadge(client)
+            bleak_badge.get_status()
+            c = 9
             #
             # Option 3, it doesn't crash but not sure if it actually works
             #
