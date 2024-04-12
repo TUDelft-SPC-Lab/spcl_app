@@ -7,25 +7,27 @@ constant_group_number = 1
 
 class Connection:
     def __init__(self, pid: int, address: str):
+        self.pid = pid
+        self.address = address
+        self.connection = BLEBadgeConnection(address)
+        self.badge = OpenBadge(self.connection)
+        self.badge_id = int(pid)
+        self.mac_address = address
+        self.group_number: int = int(constant_group_number)
+
+    def connect(self):
         try:
             for x in range(0, 10):
                 try:
                     print("START BLUETOOTH CONNECTION")
-                    self.connection = BLEBadgeConnection.get_connection_to_badge(
-                        address
-                    )
                     self.connection.connect()
-                    self.badge = OpenBadge(self.connection)
-                    self.badge_id = int(pid)
-                    self.mac_address = address
-                    self.group_number: int = int(constant_group_number)
                     break
                 except Exception as err:
                     print("GOT EXCEPTION1")
                     if x == 9:
                         raise Exception(
                             "Could not connect to participant "
-                            + str(pid)
+                            + str(self.pid)
                             + ", error:"
                             + str(err)
                         )
@@ -33,7 +35,7 @@ class Connection:
         except Exception as err:
             print("GOT EXCEPTION2")
             raise Exception(
-                "Could not connect to participant " + str(pid) + ", error:" + str(err)
+                "Could not connect to participant " + str(self.pid) + ", error:" + str(err)
             )
 
     def set_id_at_start(self):
