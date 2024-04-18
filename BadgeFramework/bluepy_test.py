@@ -68,7 +68,7 @@ class SimpleDelegate2(btle.DefaultDelegate):
 def main():
     df = pandas.read_csv("mappings_allBackup.csv")
     # df = pd.read_csv("mappings_all.csv")
-    devices_id = [32]  # test with 1 midge
+    devices_id = [29]  # test with 1 midge
     df = df[df["Participant Id"].isin(devices_id)]
     for _, row in df.iterrows():
         current_participant: int = row["Participant Id"]
@@ -100,12 +100,20 @@ def main():
 
         conn.writeCharacteristic(handle=CONFIG_HANDLE, val=val)
         conn.setDelegate(SimpleDelegate2(badge=badge))
+
         message = badge.send(conn, tx, get_free_sdc_space)
         response_len = struct.unpack("<H", badge.await_data(conn, 2))[0]
         message = badge.await_data(conn, response_len)
-        decoded_message = badge_protocol.Response.decode(message)
+        decoded_message_space = badge_protocol.Response.decode(message)
+
+        message = badge.send(conn, tx, start_microphone)
+        response_len = struct.unpack("<H", badge.await_data(conn, 2))[0]
+        message = badge.await_data(conn, response_len)
+        decoded_message_start = badge_protocol.Response.decode(message)
         time.sleep(6)
         # send(conn, tx, stop_microphone)
+        message = badge.send(conn, tx, stop_microphone)
+
         # handle: 18, data: b'\x10\x00\x05\xbd\x0e\x00\x00\xb7\x0e\x00\x00\x0e\x00\x00\x00\xd2\x01\x00'
         c = 9
 

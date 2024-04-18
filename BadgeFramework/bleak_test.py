@@ -1,13 +1,11 @@
 import asyncio
-import queue
+import time
 
 import pandas
 from bleak import BleakClient, BleakScanner, BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
-import uuid
 import struct
-import badge
 import badge_bleak
 from badge_bleak import OpenBadge
 import utils
@@ -46,7 +44,6 @@ async def main():
     devices = await BleakScanner.discover(timeout=10.0, return_adv=True)
 
     # Filter out the devices that are not the midge
-    # midges = [d for d in devices if d.name == 'HDBDG']
     devices = [d for d in devices.values() if is_spcl_midge(d[0])]
 
     # Print Id to see if it matches with any devices in the csv file.
@@ -59,6 +56,9 @@ async def main():
         # space = await open_badge.get_free_sdc_space()
         async with OpenBadge(ble_device) as open_badge:
             space = await open_badge.get_free_sdc_space()
+            start = await open_badge.start_microphone()
+            time.sleep(3)
+            stop = await open_badge.stop_microphone()
         c = 9
         # Connect to the midge
         # async with BleakClient(ble_device.address) as client1:

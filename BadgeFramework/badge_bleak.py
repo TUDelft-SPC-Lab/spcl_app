@@ -18,8 +18,10 @@ DEFAULT_IMU_DATARATE: Final[int] = 50
 
 DEFAULT_MICROPHONE_MODE: Final[int] = 1  # Valid options: 0=Stereo, 1=Mono
 
-
+CONNECTION_RETRY_TIMES = 10
+DUPLICATE_TIME_INTERVAL = 1
 logger = logging.getLogger(__name__)
+
 # -- Helper methods used often in badge communication --
 
 # We generally define timestamp_seconds to be in number of seconds since UTC epoch
@@ -61,17 +63,22 @@ class OpenBadge(object):
         self.client = bleak.BleakClient(self.device)
         self.rx_message = b''
         self.rx_queue = queue.Queue()
-        self.status_response_queue = queue.Queue()
-        self.start_microphone_response_queue = queue.Queue()
-        self.start_scan_response_queue = queue.Queue()
-        self.start_imu_response_queue = queue.Queue()
-        self.free_sdc_space_response_queue = queue.Queue()
+        self.rx_list = []
+        # self.status_response_queue = queue.Queue()
+        # self.start_microphone_response_queue = queue.Queue()
+        # self.start_scan_response_queue = queue.Queue()
+        # self.start_imu_response_queue = queue.Queue()
+        # self.free_sdc_space_response_queue = queue.Queue()
 
     async def __aenter__(self):
-        await self.client.connect()
-        rx = self.client.services.get_characteristic(utils.RX_CHAR_UUID)
-        await self.client.start_notify(rx, self.callback)
-        return self
+        for _ in range(CONNECTION_RETRY_TIMES):
+            try:
+                await self.client.connect()
+                await self.client.start_notify(utils.RX_CHAR_UUID, self.received_callback)
+                return self
+            except Exception as e:
+                pass
+        raise TimeoutError(f'Failed to connect to device after {CONNECTION_RETRY_TIMES} attempts.')
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.client.disconnect()
@@ -95,27 +102,39 @@ class OpenBadge(object):
     async def send(client, message):
         await client.write_gatt_char(utils.TX_CHAR_UUID, message, response=True)
 
-    @staticmethod
-    async def receive(client):
+    async def receive(self, client):
         response_rx = b''
         for x in range(10):
-            if len(response_rx) > 0:
+            if len(response_rx) > 0 and response_rx != self.rx_list[-1]['message']:
                 break
             response_rx = await client.read_gatt_char(utils.RX_CHAR_UUID)
         return response_rx
 
-    def callback(self, sender: bleak.BleakGATTCharacteristic, data: bytearray):
-        if len(data) > 0:
-            print(f"RX changed {sender}: {data}")
-            self.rx_message = data
-            for b in data:
-                self.rx_queue.put(b)
+    @staticmethod
+    def message_is_duplicated(message_list: list, new_message) -> bool:
+        if len(message_list) == 0:
+            return False
+        last_message = message_list[-1]
+        time_duplicated = abs(last_message['time'] - new_message['time']) < DUPLICATE_TIME_INTERVAL
+        message_duplicated = last_message['message'] == new_message['message']
+        return time_duplicated and message_duplicated
+
+    def received_callback(self, sender: bleak.BleakGATTCharacteristic, message: bytearray):
+        if len(message) > 0:
+            new_message = {'time': time.time(), 'message': message}
+            if not self.message_is_duplicated(self.rx_list, new_message):
+                print(f"RX changed {sender}: {message}" + str(time.time()))
+                self.rx_message = message
+                self.rx_list.append(new_message)
+            # for b in data:
+            #     self.rx_queue.put(b)
 
     async def request_response(self, message: bp.Request, require_response: Optional[bool] = True):
         serialized_request = self.add_serialized_header(message)
         # logger.debug("Sending: {}, Raw: {}".format(message, serialized_request.hex()))
         await self.send(self.client, serialized_request)
-        return await self.receive(self.client) if require_response else None
+        response = await self.receive(self.client)
+        return response if require_response else None
 
     @staticmethod
     def decode_response(response: bytearray or bytes):
@@ -124,24 +143,8 @@ class OpenBadge(object):
         return bp.Response.decode(serialized_response)
 
     def deal_response(self):
-        response_message = self.decode_response(self.rx_message)
-        # queue_options = {
-        #     bp.Response_status_response_tag: self.status_response_queue,
-        #     bp.Response_start_microphone_response_tag: self.start_microphone_response_queue,
-        #     bp.Response_start_scan_response_tag: self.start_scan_response_queue,
-        #     bp.Response_start_imu_response_tag: self.start_imu_response_queue,
-        #     bp.Response_free_sdc_space_response_tag: self.free_sdc_space_response_queue,
-        # }
-        # response_options = {
-        #     bp.Response_status_response_tag: response_message.type.status_response,
-        #     bp.Response_start_microphone_response_tag: response_message.type.start_microphone_response,
-        #     bp.Response_start_scan_response_tag: response_message.type.start_scan_response,
-        #     bp.Response_start_imu_response_tag: response_message.type.start_imu_response,
-        #     bp.Response_free_sdc_space_response_tag: response_message.type.free_sdc_space_response,
-        # }
-        # queue_options[response_message.type.which].put(
-        #     response_options[response_message.type.which]
-        # )
+        serialized_response = self.rx_list.pop(0)['message']
+        response_message = self.decode_response(serialized_response)
         return response_message
 
     # Sends a status request to this Badge.
@@ -159,20 +162,20 @@ class OpenBadge(object):
             request.type.status_request.badge_assignement.group = new_group_number
             request.type.status_request.has_badge_assignement = True
 
-        response = await self.request_response(request)
-        return self.deal_response()
+        await self.request_response(request)
+        return self.deal_response().type.status_response
 
     # Sends a request to the badge to start recording microphone data.
-    # Returns a StartRecordResponse() representing the badges response.
+    # Returns a StartRecordResponse() representing the badges' response.
     async def start_microphone(self, t=None, mode=DEFAULT_MICROPHONE_MODE):
         request = bp.Request()
         request.type.which = bp.Request_start_microphone_request_tag
         request.type.start_microphone_request = bp.StartMicrophoneRequest()
-        request.type.status_request.timestamp = bp_timestamp_from_time(t)
+        request.type.start_microphone_request.timestamp = bp_timestamp_from_time(t)
         request.type.start_microphone_request.mode = mode
 
-        response = await self.request_response(request)
-        return self.deal_response()
+        await self.request_response(request)
+        return self.deal_response().type.start_microphone_response
 
     # Sends a request to the badge to stop recording.
     # Returns True if request was successfully sent.
@@ -181,8 +184,8 @@ class OpenBadge(object):
         request.type.which = bp.Request_stop_microphone_request_tag
         request.type.stop_microphone_request = bp.StopMicrophoneRequest()
 
-        response = await self.request_response(request)
-        self.deal_response()
+        await self.request_response(request, require_response=False)
+        return None
 
     # Sends a request to the badge to start performing scans and collecting scan data.
     #   window_miliseconds and interval_miliseconds controls radio duty cycle during scanning (0 for firmware default)
@@ -192,11 +195,11 @@ class OpenBadge(object):
         request = bp.Request()
         request.type.which = bp.Request_start_scan_request_tag
         request.type.start_scan_request = bp.StartScanRequest()
-        request.type.status_request.timestamp = bp_timestamp_from_time(t)
+        request.type.start_scan_request.timestamp = bp_timestamp_from_time(t)
         request.type.start_scan_request.window = window_ms
         request.type.start_scan_request.interval = interval_ms
 
-        response = await self.request_response(request)
+        await self.request_response(request)
         return self.deal_response()
 
     # Sends a request to the badge to stop scanning.
@@ -215,12 +218,12 @@ class OpenBadge(object):
         request = bp.Request()
         request.type.which = bp.Request_start_imu_request_tag
         request.type.start_imu_request = bp.StartImuRequest()
-        request.type.status_request.timestamp = bp_timestamp_from_time(t)
+        request.type.start_imu_request.timestamp = bp_timestamp_from_time(t)
         request.type.start_imu_request.acc_fsr = acc_fsr
         request.type.start_imu_request.gyr_fsr = gyr_fsr
         request.type.start_imu_request.datarate = datarate
 
-        response = await self.request_response(request)
+        await self.request_response(request)
         return self.deal_response()
 
     async def stop_imu(self):
@@ -228,10 +231,10 @@ class OpenBadge(object):
         request.type.which = bp.Request_stop_imu_request_tag
         request.type.stop_imu_request = bp.StopImuRequest()
 
-        response = await self.request_response(request)
+        await self.request_response(request)
         return self.deal_response()
 
-    # Send a request to the badge to light an led to identify its self.
+    # Send a request to the badge to light an LED to identify its self.
     #   If duration_seconds == 0, badge will turn off LED if currently lit.
     # Returns True if request was successfully sent.
     async def identify(self, duration_seconds=10):
@@ -240,7 +243,7 @@ class OpenBadge(object):
         request.type.identify_request = bp.IdentifyRequest()
         request.type.identify_request.timeout = duration_seconds
 
-        response = await self.request_response(request)
+        await self.request_response(request)
         self.deal_response()
         return True
 
@@ -249,7 +252,7 @@ class OpenBadge(object):
         request.type.which = bp.Request_restart_request_tag
         request.type.restart_request = bp.RestartRequest()
 
-        response = await self.request_response(request)
+        await self.request_response(request)
         self.deal_response()
         return True
 
@@ -258,6 +261,5 @@ class OpenBadge(object):
         request.type.which = bp.Request_free_sdc_space_request_tag
         request.type.free_sdc_space_request = bp.FreeSDCSpaceRequest()
 
-        response = await self.request_response(request)
-        return self.deal_response()
-
+        await self.request_response(request)
+        return self.deal_response().type.free_sdc_space_response
