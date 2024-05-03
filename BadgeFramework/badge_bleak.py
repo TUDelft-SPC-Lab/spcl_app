@@ -54,13 +54,18 @@ def bp_timestamp_from_time(t=None):
     return ts
 
 
+def badge_disconnected(b):
+    print(f"Warning: disconnected badge")
+
+
 # Represents an OpenBadge currently connected via the BadgeConnection 'connection'.
 #    The 'connection' should already be connected when it is used to initialize this class.
 # Implements methods that allow for interaction with that badge.
 class OpenBadge(object):
     def __init__(self, device: bleak.BLEDevice):
         self.device = device
-        self.client = bleak.BleakClient(self.device)
+        self.id = utils.get_device_id(device)
+        self.client = bleak.BleakClient(self.device, disconnected_callback=badge_disconnected)
         self.rx_message = b''
         self.rx_queue = queue.Queue()
         self.rx_list = []
@@ -102,11 +107,12 @@ class OpenBadge(object):
     async def send(client, message):
         await client.write_gatt_char(utils.TX_CHAR_UUID, message, response=True)
 
-    async def receive(self, client):
+    @staticmethod
+    async def receive(client):
         response_rx = b''
         for x in range(10):
-            if len(response_rx) > 0 and response_rx != self.rx_list[-1]['message']:
-                break
+            # if len(response_rx) > 0:
+            #     break
             response_rx = await client.read_gatt_char(utils.RX_CHAR_UUID)
         return response_rx
 
