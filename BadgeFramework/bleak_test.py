@@ -1,10 +1,9 @@
 import asyncio
 import time
-import pandas
 import logging
 import utils
-from bleak import BleakClient, BleakScanner
-from badge_bleak import OpenBadge
+from bleak import BleakScanner
+from badge import OpenBadge
 
 
 async def synchronize_device(open_badge: OpenBadge, logger: logging.Logger) -> None:
@@ -20,7 +19,7 @@ async def synchronize_device(open_badge: OpenBadge, logger: logging.Logger) -> N
     if status.scan_status == 0:
         logger.info(f"Scan is not recording for participant {open_badge.id}.")
     if status.clock_status == 0:
-        logger.info(f"Cant synch for participant {open_badge.id}.")
+        logger.info(f"Can't sync for participant {open_badge.id}.")
 
 
 async def main():

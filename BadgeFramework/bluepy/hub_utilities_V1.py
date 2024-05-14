@@ -5,7 +5,8 @@ import termios
 import logging
 import time
 
-from hub_connection_V1 import Connection
+# from hub_connection_V1 import Connection
+
 
 def get_logger(name):
     log_format_file = '%(asctime)s  %(levelname)5s  %(message)s'

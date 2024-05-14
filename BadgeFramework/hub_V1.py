@@ -1,6 +1,6 @@
 import pandas as pd
 import sys
-from hub_utilities_V1 import (
+from hub_utilities import (
     start_recording_all_devices,
     stop_recording_all_devices,
     timeout_input,
@@ -8,7 +8,6 @@ from hub_utilities_V1 import (
     synchronise_and_check_all_devices,
     get_logger
 )
-from hub_connection_V1 import Connection
 
 if __name__ == "__main__":
     df = pd.read_csv("mappings_all.csv")
