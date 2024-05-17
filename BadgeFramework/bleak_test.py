@@ -40,10 +40,10 @@ async def main():
         # open_badge = OpenBadge(ble_device)
         # space = await open_badge.get_free_sdc_space()
         async with OpenBadge(ble_device) as open_badge:
-            # space = await open_badge.get_free_sdc_space()
-            start = await open_badge.start_imu()
-            time.sleep(6)
-            stop = await open_badge.stop_imu()
+            space = await open_badge.get_free_sdc_space()
+            # start = await open_badge.start_imu()
+            # time.sleep(6)
+            # stop = await open_badge.stop_imu()
             # await synchronize_device(open_badge, logger)
         c = 9
     print('completed')

@@ -57,13 +57,50 @@ def badge_disconnected(b: BleakClient) -> None:
     print(f"Warning: disconnected badge")
 
 
-class OpenBadge(object):
+def request_handler(device_id, action_desc):
+    def request_handler_decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                value = request_func(*args, **kwargs)
+                return value
+            except Exception as err:
+                error_desc = "Could not {} for participant {}, error: {}"
+                raise Exception(error_desc.format(action_desc, str(device_id), str(err)))
+        return wrapper
+    return request_handler_decorator
+
+
+def request_handler_marker(action_desc):
+    def wrapper(func):
+        func._handler = True  # Mark the function to be repeated
+        func._action_desc = action_desc
+        return func
+    return wrapper
+
+
+class OpenBadgeMeta:
+    def __init__(self, device: BLEDevice):
+        self.device = device
+        self.device_id = utils.get_device_id(device)
+        self._decorate_methods()
+
+    def _decorate_methods(self):
+        # Automatically decorate methods marked with @repeat_method
+        for attr_name in dir(self):
+            attr = getattr(self, attr_name)
+            if callable(attr) and getattr(attr, '_handler', False):
+                action_desc = getattr(attr, '_action_desc', '[unknown operation]')
+                decorated = request_handler(self.device_id, action_desc)(attr)
+                setattr(self, attr_name, decorated)
+
+
+class OpenBadge(OpenBadgeMeta):
     """Represents an OpenBadge currently connected via the BadgeConnection 'connection'.
     The 'connection' should already be connected when it is used to initialize this class.
     Implements methods that allow for interaction with that badge."""
     def __init__(self, device: BLEDevice):
-        self.device = device
-        self.id = utils.get_device_id(device)
+        super().__init__(device)
         self.client = BleakClient(self.device, disconnected_callback=badge_disconnected)
         # self.rx_message = b''
         self.rx_list = []
@@ -83,19 +120,6 @@ class OpenBadge(object):
 
     # Helper function to send a BadgeMessage `command_message` to a device, expecting a response
     # of class `response_type` that is a subclass of BadgeMessage, or None if no response is expected.
-
-    def request_handler(self, action_desc):
-        def handler_decorator(request_func: Callable) -> Callable:
-            @functools.wraps(request_func)
-            def wrapper(*args, **kwargs):
-                try:
-                    value = request_func(*args, **kwargs)
-                    return value
-                except Exception as err:
-                    error_desc = "Could not {} for participant {}, error: {}"
-                    raise Exception(error_desc.format(action_desc, str(self.id), str(err)))
-            return wrapper
-        return handler_decorator
 
     @property
     def is_connected(self) -> bool:
@@ -166,7 +190,7 @@ class OpenBadge(object):
         response_message = self.decode_response(serialized_response)
         return response_message
 
-    @request_handler(action_desc='get status')
+    @request_handler_marker(action_desc='get status')
     async def get_status(self, t=None, new_id: Optional[int] = None, new_group_number: Optional[int] = None)\
             -> bp.StatusResponse:
         """Sends a status request to this Badge. Optional fields new_id and new_group number will set
@@ -191,7 +215,7 @@ class OpenBadge(object):
         except Exception as err:
             raise Exception(f"Could not set id {badge_id}, error:" + str(err))
 
-    @request_handler(action_desc='start microphone')
+    @request_handler_marker(action_desc='start microphone')
     async def start_microphone(self, t=None, mode=DEFAULT_MICROPHONE_MODE) -> bp.StartMicrophoneResponse:
         """Sends a request to the badge to start recording microphone data. Returns a StartRecordResponse()
         representing the badges' response."""
@@ -204,7 +228,7 @@ class OpenBadge(object):
         await self.request_response(request)
         return self.deal_response().type.start_microphone_response
 
-    @request_handler(action_desc='stop microphone')
+    @request_handler_marker(action_desc='stop microphone')
     async def stop_microphone(self) -> None:
         """Sends a request to the badge to stop recording."""
         request = bp.Request()
@@ -214,7 +238,7 @@ class OpenBadge(object):
         await self.request_response(request, require_response=False)
         return None
 
-    @request_handler(action_desc='start scan')
+    # @request_handler_marker(action_desc='start scan')
     async def start_scan(self, t=None, window_ms=DEFAULT_SCAN_WINDOW, interval_ms=DEFAULT_SCAN_INTERVAL)\
             -> bp.StartScanResponse:
         """Sends a request to the badge to start performing scans and collecting scan data.
@@ -231,7 +255,7 @@ class OpenBadge(object):
         await self.request_response(request)
         return self.deal_response().type.start_scan_response
 
-    @request_handler(action_desc='stop scan')
+    # @request_handler_marker(action_desc='stop scan')
     async def stop_scan(self) -> None:
         """Sends a request to the badge to stop scanning."""
         request = bp.Request()
@@ -241,7 +265,7 @@ class OpenBadge(object):
         await self.request_response(request)
         return self.deal_response()
 
-    @request_handler(action_desc='start imu')
+    # @request_handler_marker(action_desc='start imu')
     async def start_imu(self, t=None, acc_fsr=DEFAULT_IMU_ACC_FSR, gyr_fsr=DEFAULT_IMU_GYR_FSR,
                         datarate=DEFAULT_IMU_DATARATE) -> bp.StartImuResponse:
         """Sends a request to the badge to start IMU. Returns the response object."""
@@ -256,7 +280,7 @@ class OpenBadge(object):
         await self.request_response(request)
         return self.deal_response().type.start_imu_response
 
-    @request_handler(action_desc='stop imu')
+    # @request_handler_marker(action_desc='stop imu')
     async def stop_imu(self) -> None:
         """Sends a request to the badge to stop IMU."""
         request = bp.Request()
@@ -266,7 +290,7 @@ class OpenBadge(object):
         await self.request_response(request)
         return None
 
-    @request_handler(action_desc='identify')
+    # @request_handler_marker(action_desc='identify')
     async def identify(self, duration_seconds=10) -> bool:
         """Send a request to the badge to light an LED to identify its self.
         If duration_seconds == 0, badge will turn off LED if currently lit.
@@ -280,7 +304,7 @@ class OpenBadge(object):
         self.deal_response()
         return True
 
-    @request_handler(action_desc='restart')
+    # @request_handler_marker(action_desc='restart')
     async def restart(self) -> bool:
         """Sends a request to the badge to restart the badge. Returns True if request was successfully sent."""
         request = bp.Request()
@@ -291,7 +315,7 @@ class OpenBadge(object):
         self.deal_response()
         return True
 
-    @request_handler(action_desc='get free sdc space')
+    # @request_handler_marker(action_desc='get free sdc space')
     async def get_free_sdc_space(self) -> bp.FreeSDCSpaceResponse:
         """Sends a request to the badge to get a free sdc space. Returns the response object."""
         request = bp.Request()
