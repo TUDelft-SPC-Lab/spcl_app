@@ -57,12 +57,12 @@ def badge_disconnected(b: BleakClient) -> None:
     print(f"Warning: disconnected badge")
 
 
-def request_handler(device_id, action_desc):
-    def request_handler_decorator(func):
+async def request_handler(device_id, action_desc):
+    async def request_handler_decorator(func):
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):
             try:
-                value = request_func(*args, **kwargs)
+                value = await func(*args, **kwargs)
                 return value
             except Exception as err:
                 error_desc = "Could not {} for participant {}, error: {}"
@@ -88,7 +88,7 @@ class OpenBadgeMeta:
     def _decorate_methods(self):
         # Automatically decorate methods marked with @repeat_method
         for attr_name in dir(self):
-            attr = getattr(self, attr_name)
+            attr = getattr(self, attr_name, None)
             if callable(attr) and getattr(attr, '_handler', False):
                 action_desc = getattr(attr, '_action_desc', '[unknown operation]')
                 decorated = request_handler(self.device_id, action_desc)(attr)
@@ -96,9 +96,7 @@ class OpenBadgeMeta:
 
 
 class OpenBadge(OpenBadgeMeta):
-    """Represents an OpenBadge currently connected via the BadgeConnection 'connection'.
-    The 'connection' should already be connected when it is used to initialize this class.
-    Implements methods that allow for interaction with that badge."""
+    """Represents an OpenBadge and implements methods that allow for interaction with that badge."""
     def __init__(self, device: BLEDevice):
         super().__init__(device)
         self.client = BleakClient(self.device, disconnected_callback=badge_disconnected)
@@ -315,7 +313,7 @@ class OpenBadge(OpenBadgeMeta):
         self.deal_response()
         return True
 
-    # @request_handler_marker(action_desc='get free sdc space')
+    @request_handler_marker(action_desc='get free sdc space')
     async def get_free_sdc_space(self) -> bp.FreeSDCSpaceResponse:
         """Sends a request to the badge to get a free sdc space. Returns the response object."""
         request = bp.Request()
