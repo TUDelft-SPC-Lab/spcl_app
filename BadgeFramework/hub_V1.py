@@ -1,5 +1,6 @@
 import pandas as pd
 import sys
+import os
 from hub_utilities import (
     start_recording_all_devices,
     stop_recording_all_devices,
@@ -8,9 +9,12 @@ from hub_utilities import (
     synchronise_and_check_all_devices,
     get_logger
 )
+import asyncio
 
-if __name__ == "__main__":
-    df = pd.read_csv("mappings_all.csv")
+
+def main():
+    print(os.getcwd())
+    df = pd.read_csv("BadgeFramework/mappings_new.csv")
     logger = get_logger("hub_main")
     while True:
         logger.info("Type start to start data collection or stop to finish data "
@@ -26,7 +30,7 @@ if __name__ == "__main__":
                 ti = timeout_input(poll_period=0.05)
                 s = ti.input(
                     prompt="Type int if you would like to enter interactive shell.\n"
-                    + ">",
+                           + ">",
                     timeout=10.0,
                     extend_timeout_with_input=False,
                     require_enter_to_confirm=True,
@@ -102,3 +106,15 @@ if __name__ == "__main__":
                 + "collection."
             )
             sys.stdout.flush()
+
+
+async def main_v2():
+    # print(os.getcwd())
+    os.chdir('/home/zonghuan/tudelft/projects/spcl_app/BadgeFramework')
+    df = pd.read_csv('mappings2.csv')
+    await synchronise_and_check_all_devices(df)
+
+
+if __name__ == "__main__":
+    asyncio.run(main_v2())
+    # main()

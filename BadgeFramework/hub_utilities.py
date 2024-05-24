@@ -87,10 +87,10 @@ async def synchronise_and_check_all_devices(df):
         device_id: int = row["Participant Id"]
         device_addr: str = row["Mac Address"]
         # TODO: find out how to construct this device
-        ble_device = BLEDevice(device_addr, device_id)
+        # ble_device = BLEDevice(device_addr, device_id)
         try:
-            async with OpenBadge(ble_device) as open_badge:
-                out = open_badge.get_status()
+            async with OpenBadge(device_id, device_addr) as open_badge:
+                out = await open_badge.get_status()
                 logger.info("Status received for the following midge:" + str(device_id) + ".")
                 # TODO This is not actually the timestamp before, find how to get it.
                 logger.debug("Device timestamp before sync - seconds:"
@@ -106,7 +106,7 @@ async def synchronise_and_check_all_devices(df):
                     logger.info("Cant sync for participant " + str(device_id) + ".")
         except Exception as error:
             logger.info(f"Status check for midge {str(device_id)} returned the following error: {str(error)}")
-            sys.stdout.flush()
+            # sys.stdout.flush()
             continue
     print('completed')
 

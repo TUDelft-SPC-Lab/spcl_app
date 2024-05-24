@@ -21,7 +21,7 @@ DEFAULT_IMU_DATARATE: Final[int] = 50
 
 DEFAULT_MICROPHONE_MODE: Final[int] = 1  # Valid options: 0=Stereo, 1=Mono
 
-CONNECTION_RETRY_TIMES = 10
+CONNECTION_RETRY_TIMES = 3
 DUPLICATE_TIME_INTERVAL = 1
 logger = logging.getLogger(__name__)
 
@@ -57,8 +57,8 @@ def badge_disconnected(b: BleakClient) -> None:
     print(f"Warning: disconnected badge")
 
 
-async def request_handler(device_id, action_desc):
-    async def request_handler_decorator(func):
+def request_handler(device_id, action_desc):
+    def request_handler_decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             try:
@@ -80,9 +80,14 @@ def request_handler_marker(action_desc):
 
 
 class OpenBadgeMeta:
-    def __init__(self, device: BLEDevice):
-        self.device = device
-        self.device_id = utils.get_device_id(device)
+    def __init__(self, device: BLEDevice or int, mac_address: str = None):
+        # self.device = device
+        if isinstance(device, BLEDevice):
+            self.device_id = utils.get_device_id(device)
+            self.address = device.address
+        elif isinstance(device, int):
+            self.device_id = device
+            self.address = mac_address
         self._decorate_methods()
 
     def _decorate_methods(self):
@@ -97,16 +102,16 @@ class OpenBadgeMeta:
 
 class OpenBadge(OpenBadgeMeta):
     """Represents an OpenBadge and implements methods that allow for interaction with that badge."""
-    def __init__(self, device: BLEDevice):
-        super().__init__(device)
-        self.client = BleakClient(self.device, disconnected_callback=badge_disconnected)
+    def __init__(self, device: BLEDevice or int, mac_address: str = None):
+        super().__init__(device, mac_address)
+        self.client = BleakClient(self.address, disconnected_callback=badge_disconnected)
         # self.rx_message = b''
         self.rx_list = []
 
     async def __aenter__(self):
         for _ in range(CONNECTION_RETRY_TIMES):
             try:
-                await self.client.connect()
+                await self.client.connect(timeout=10)
                 await self.client.start_notify(utils.RX_CHAR_UUID, self.received_callback)
                 return self
             except Exception as e:
@@ -236,7 +241,7 @@ class OpenBadge(OpenBadgeMeta):
         await self.request_response(request, require_response=False)
         return None
 
-    # @request_handler_marker(action_desc='start scan')
+    @request_handler_marker(action_desc='start scan')
     async def start_scan(self, t=None, window_ms=DEFAULT_SCAN_WINDOW, interval_ms=DEFAULT_SCAN_INTERVAL)\
             -> bp.StartScanResponse:
         """Sends a request to the badge to start performing scans and collecting scan data.
@@ -253,7 +258,7 @@ class OpenBadge(OpenBadgeMeta):
         await self.request_response(request)
         return self.deal_response().type.start_scan_response
 
-    # @request_handler_marker(action_desc='stop scan')
+    @request_handler_marker(action_desc='stop scan')
     async def stop_scan(self) -> None:
         """Sends a request to the badge to stop scanning."""
         request = bp.Request()
@@ -263,7 +268,7 @@ class OpenBadge(OpenBadgeMeta):
         await self.request_response(request)
         return self.deal_response()
 
-    # @request_handler_marker(action_desc='start imu')
+    @request_handler_marker(action_desc='start imu')
     async def start_imu(self, t=None, acc_fsr=DEFAULT_IMU_ACC_FSR, gyr_fsr=DEFAULT_IMU_GYR_FSR,
                         datarate=DEFAULT_IMU_DATARATE) -> bp.StartImuResponse:
         """Sends a request to the badge to start IMU. Returns the response object."""
@@ -278,7 +283,7 @@ class OpenBadge(OpenBadgeMeta):
         await self.request_response(request)
         return self.deal_response().type.start_imu_response
 
-    # @request_handler_marker(action_desc='stop imu')
+    @request_handler_marker(action_desc='stop imu')
     async def stop_imu(self) -> None:
         """Sends a request to the badge to stop IMU."""
         request = bp.Request()
@@ -288,7 +293,7 @@ class OpenBadge(OpenBadgeMeta):
         await self.request_response(request)
         return None
 
-    # @request_handler_marker(action_desc='identify')
+    @request_handler_marker(action_desc='identify')
     async def identify(self, duration_seconds=10) -> bool:
         """Send a request to the badge to light an LED to identify its self.
         If duration_seconds == 0, badge will turn off LED if currently lit.
@@ -302,7 +307,7 @@ class OpenBadge(OpenBadgeMeta):
         self.deal_response()
         return True
 
-    # @request_handler_marker(action_desc='restart')
+    @request_handler_marker(action_desc='restart')
     async def restart(self) -> bool:
         """Sends a request to the badge to restart the badge. Returns True if request was successfully sent."""
         request = bp.Request()
