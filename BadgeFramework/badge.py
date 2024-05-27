@@ -21,7 +21,7 @@ DEFAULT_IMU_DATARATE: Final[int] = 50
 
 DEFAULT_MICROPHONE_MODE: Final[int] = 1  # Valid options: 0=Stereo, 1=Mono
 
-CONNECTION_RETRY_TIMES = 3
+CONNECTION_RETRY_TIMES = 10
 DUPLICATE_TIME_INTERVAL = 1
 logger = logging.getLogger(__name__)
 

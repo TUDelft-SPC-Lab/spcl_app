@@ -112,7 +112,9 @@ async def main_v2():
     # print(os.getcwd())
     os.chdir('/home/zonghuan/tudelft/projects/spcl_app/BadgeFramework')
     df = pd.read_csv('mappings2.csv')
-    await synchronise_and_check_all_devices(df)
+    # await synchronise_and_check_all_devices(df)
+    await start_recording_all_devices(df)
+    await stop_recording_all_devices(df)
 
 
 if __name__ == "__main__":

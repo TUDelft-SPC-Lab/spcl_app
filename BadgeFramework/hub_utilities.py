@@ -55,11 +55,12 @@ async def start_recording_all_devices(df):
     for _, row in df.iterrows():
         device_id: int = row["Participant Id"]
         device_addr: str = row["Mac Address"]
-        # TODO: find out how to construct this device
-        ble_device = BLEDevice(device_addr, device_id)
+        use_current_device: bool = row["Use"]
+        if not use_current_device:
+            continue
         try:
-            async with OpenBadge(ble_device) as open_badge:
-                await open_badge.set_id_at_start()
+            async with OpenBadge(device_id, device_addr) as open_badge:
+                # await open_badge.set_id_at_start()
                 await open_badge.start_recording_all_sensors()
         except Exception as error:
             logger.info(f"Sensors for midge {str(device_id)} are not started with the following error: {str(error)}")
@@ -71,10 +72,11 @@ async def stop_recording_all_devices(df):
     for _, row in df.iterrows():
         device_id: int = row["Participant Id"]
         device_addr: str = row["Mac Address"]
-        # TODO: find out how to construct this device
-        ble_device = BLEDevice(device_addr, device_id)
+        use_current_device: bool = row["Use"]
+        if not use_current_device:
+            continue
         try:
-            async with OpenBadge(ble_device) as open_badge:
+            async with OpenBadge(device_id, device_addr) as open_badge:
                 await open_badge.stop_recording_all_sensors()
         except Exception as error:
             logger.info(f"Sensors for midge {str(device_id)} are not stopped with the following error: {str(error)}")
@@ -82,12 +84,16 @@ async def stop_recording_all_devices(df):
     print('completed')
 
 
+# async def synchronise_one_device(df):
+
+
 async def synchronise_and_check_all_devices(df):
     for _, row in df.iterrows():
         device_id: int = row["Participant Id"]
         device_addr: str = row["Mac Address"]
-        # TODO: find out how to construct this device
-        # ble_device = BLEDevice(device_addr, device_id)
+        use_current_device: bool = row["Use"]
+        if not use_current_device:
+            continue
         try:
             async with OpenBadge(device_id, device_addr) as open_badge:
                 out = await open_badge.get_status()
@@ -96,12 +102,13 @@ async def synchronise_and_check_all_devices(df):
                 logger.debug("Device timestamp before sync - seconds:"
                              + str(out.timestamp.seconds) + ", ms:"
                              + str(out.timestamp.ms) + ".")
+                error_message = "{} is not recording for participant " + str(device_id) + "."
                 if out.imu_status == 0:
-                    logger.info("IMU is not recording for participant " + str(device_id) + ".")
+                    logger.info(error_message.format("IMU"))
                 if out.microphone_status == 0:
-                    logger.info("Mic is not recording for participant " + str(device_id) + ".")
+                    logger.info(error_message.format("Mic"))
                 if out.scan_status == 0:
-                    logger.info("Scan is not recording for participant " + str(device_id) + ".")
+                    logger.info(error_message.format("Scan"))
                 if out.clock_status == 0:
                     logger.info("Cant sync for participant " + str(device_id) + ".")
         except Exception as error:
