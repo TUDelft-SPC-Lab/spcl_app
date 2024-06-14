@@ -212,9 +212,9 @@ class OpenBadge(OpenBadgeMeta):
         await self.request_response(request)
         return self.deal_response().type.status_response
 
-    def set_id_at_start(self, badge_id, group_number):
+    async def set_id_at_start(self, badge_id, group_number):
         try:
-            self.get_status(new_id=badge_id, new_group_number=group_number)
+            await self.get_status(new_id=badge_id, new_group_number=group_number)
         except Exception as err:
             raise Exception(f"Could not set id {badge_id}, error:" + str(err))
 
