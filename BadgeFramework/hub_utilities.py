@@ -1,7 +1,7 @@
 from badge import OpenBadge
 import sys
-import tty
-import termios
+# import tty
+# import termios
 import logging
 import time
 import utils
@@ -126,16 +126,17 @@ class timeout_input(object):
         from select import select
 
         fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
+        # old_settings = termios.tcgetattr(fd)
         try:
-            tty.setraw(sys.stdin.fileno())
+            # tty.setraw(sys.stdin.fileno())
             [i, _, _] = select([sys.stdin.fileno()], [], [], self.poll_period)
             if i:
                 ch = sys.stdin.read(1)
             else:
                 ch = ""
         finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            # termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            pass
         return ch
 
     def input(
