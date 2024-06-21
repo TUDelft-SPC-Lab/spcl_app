@@ -22,7 +22,7 @@ DEFAULT_IMU_DATARATE: Final[int] = 50
 DEFAULT_MICROPHONE_MODE: Final[int] = 1  # Valid options: 0=Stereo, 1=Mono
 
 CONNECTION_RETRY_TIMES = 10
-DUPLICATE_TIME_INTERVAL = 1
+DUPLICATE_TIME_INTERVAL = 2
 logger = logging.getLogger(__name__)
 
 # -- Helper methods used often in badge communication --
@@ -88,6 +88,8 @@ class OpenBadgeMeta:
         elif isinstance(device, int):
             self.device_id = device
             self.address = mac_address
+        else:
+            raise TypeError
         self._decorate_methods()
 
     def _decorate_methods(self):
@@ -127,6 +129,10 @@ class OpenBadge(OpenBadgeMeta):
     @property
     def is_connected(self) -> bool:
         return self.client.is_connected
+
+    def badge_disconnected(self, b: BleakClient) -> None:
+        """disconnection callback"""
+        print(f"Warning: disconnected badge")
 
     @staticmethod
     def add_serialized_header(request_message: bp.Request) -> bytes or bytearray:
@@ -335,7 +341,7 @@ class OpenBadge(OpenBadgeMeta):
         await self.start_imu()
 
     async def stop_recording_all_sensors(self):
-        await self.start_scan()
+        await self.stop_scan()
         await self.stop_microphone()
         await self.stop_imu()
 

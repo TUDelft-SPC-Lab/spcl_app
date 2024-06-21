@@ -1,7 +1,7 @@
 from badge import OpenBadge
 import sys
-# import tty
-# import termios
+import tty
+import termios
 import logging
 import time
 import utils
@@ -63,7 +63,7 @@ async def start_recording_all_devices(df):
                 # await open_badge.set_id_at_start()
                 await open_badge.start_recording_all_sensors()
         except Exception as error:
-            logger.info(f"Sensors for midge {str(device_id)} are not started with the following error: {str(error)}")
+            logger.info(f"Sensors for midge {device_id} are not started with the following error: {str(error)}")
             continue
     print('completed')
 
@@ -126,17 +126,17 @@ class timeout_input(object):
         from select import select
 
         fd = sys.stdin.fileno()
-        # old_settings = termios.tcgetattr(fd)
+        old_settings = termios.tcgetattr(fd)
         try:
-            # tty.setraw(sys.stdin.fileno())
+            tty.setraw(sys.stdin.fileno())
             [i, _, _] = select([sys.stdin.fileno()], [], [], self.poll_period)
             if i:
                 ch = sys.stdin.read(1)
             else:
                 ch = ""
         finally:
-            # termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            pass
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            # pass
         return ch
 
     def input(

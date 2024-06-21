@@ -1,3 +1,5 @@
+import time
+
 import pandas as pd
 import sys
 import os
@@ -12,18 +14,23 @@ from hub_utilities import (
 import asyncio
 
 
-def start_recording_cmd(logger):
+midges_used = [29, 33, 42, 45, 49]
+
+
+async def start_recording_cmd(logger, df):
     logger.info("Connecting to the midges for starting the recordings.")
+    sys.stdout.flush()
     # TODO: uncomment the recording function
-    # start_recording_all_devices(df)
+    await start_recording_all_devices(df)
     logger.info("Loop for starting the devices is finished.")
+    sys.stdout.flush()
 
 
-def stop_recording_cmd(logger):
+async def stop_recording_cmd(logger, df):
     logger.info("Stopping the recording of all devices.")
     sys.stdout.flush()
     # TODO: uncomment the stop recording function
-    # stop_recording_all_devices(df)
+    await stop_recording_all_devices(df)
     logger.info("Devices are stopped.")
     sys.stdout.flush()
 
@@ -83,10 +90,9 @@ def single_sensor_cmd(logger, midge_id):
         elif command == "help":
             # TODO: uncomment the print help function
             # cur_connection.print_help()
-            continue
+            pass
         else:
             handle_function_choice(logger)
-            continue
 
 
 def handle_function_choice(logger):
@@ -109,7 +115,7 @@ def synchronization_cmd(logger):
     sys.stdout.flush()
 
 
-def command_line():
+async def command_line():
     df = pd.read_csv("mappings2.csv")
     logger = get_logger("hub_main")
     recording_started = False
@@ -121,12 +127,12 @@ def command_line():
         if command == "start":
             if not recording_started:
                 recording_started = True
-                start_recording_cmd(logger)
+                await start_recording_cmd(logger, df)
             else:
                 logger.warning("Recording already started.")
         elif command == "stop":
             if recording_started:
-                stop_recording_cmd(logger)
+                await stop_recording_cmd(logger, df)
                 recording_started = False
             else:
                 logger.warning("Cannot stop. Recording not started.")
@@ -255,12 +261,13 @@ async def main_v2():
     df = pd.read_csv('mappings2.csv')
     # await synchronise_and_check_all_devices(df)
     await start_recording_all_devices(df)
+    time.sleep(10)
     await stop_recording_all_devices(df)
 
 
 if __name__ == "__main__":
-    # os.chdir('/home/zonghuan/tudelft/projects/spcl_app/BadgeFramework')
-    # asyncio.run(main_v2())
+    os.chdir('/home/zonghuan/tudelft/projects/spcl_app/BadgeFramework')
+    asyncio.run(main_v2())
     # main()
     # df = pd.read_csv('mappings2.csv')
-    command_line()
+    # asyncio.run(command_line())

@@ -42,10 +42,10 @@ async def main():
         async with OpenBadge(ble_device) as open_badge:
             # space = await open_badge.get_free_sdc_space()
             out = await open_badge.get_status(t=40)
-            start = await open_badge.start_imu()
+            start = await open_badge.start_microphone()
         time.sleep(15)
         async with OpenBadge(ble_device) as open_badge:
-            stop = await open_badge.stop_imu()
+            stop = await open_badge.stop_microphone()
             # await synchronize_device(open_badge, logger)
         c = 9
     print('completed')
