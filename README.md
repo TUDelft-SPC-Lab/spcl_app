@@ -1,3 +1,8 @@
+# Archived repository
+Please see [https://github.com/TUDelft-SPC-Lab/spcl_app/ ](https://github.com/TUDelft-SPC-Lab/midge-code) for updated versions of the midge code.
+
+This is repo is an old fork of that one, where the history was squashed.
+
 # "Midge", an spcl badge 
 
 ## Advertisment Packet structure
